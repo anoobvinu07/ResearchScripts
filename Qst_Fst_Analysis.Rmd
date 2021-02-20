@@ -39,7 +39,11 @@ Edge <- filter(tdata, Region == "E")
 
 ## Set prior    
 **Setting priors for the model**   
-A unifrom non informative prior was used to get the posterior distribution given the data. The ‘R’ in the prior stands for residual variance and G stands for the variance due to the random eﬀects. The prior distibution is the package is paramaterised to nu and V4. In this study the values are set at what is considered to be classical. This prior was good enough for all the models of traits studied in the three regions.  
+A unifrom non informative prior was used to get the posterior distribution given the data. 
+The ‘R’ in the prior stands for residual variance and G stands for the variance due to the random eﬀects. 
+The prior distibution is the package is paramaterised to nu and V4. 
+In this study the values are set at what is considered to be classical. 
+This prior was good enough for all the models of traits studied in the three regions.  
 
 ```{r}
 ### set seed
@@ -69,11 +73,40 @@ modCore1 <-  MCMCglmm(Trait ~ 1,
                       burnin=10000 , 
                       nitt=1000000 , 
                       thin=100)
+```
 
-
+**Model checks**  
+MCMCglmm has model checks of its own to see if the chains converged properly and if the MCMC was able
+to iterate enough times to get a good read about the probability space. If the trace of the intercept is not in
+the form of a fuzzy caterpillar, that would indicate there is not enough sampling at the probability space and
+the model needs to be iterated more. The density of the intercept is another way of representing the varaince
+components like the fuzzy caterpillar plot.
+```{r}
 plot(modCore1) # unimodal distribution required
+```
 
+The other model checks that are available in MCMCglmm are given below. The ‘autocorr.diag’ was intuitive
+to check for autocorrelation of the model. 
+However, the ‘acf()’ seems to better represent autocorrelation.
+None of the models run had problems due to autocorrelation. 
+The next check would be to see if the eﬀective
+sample size was larger than at least a thousand. The logic behind the eﬀective size ties the no. of itterations
+(nitt), burnin and thinning (thin) to see that the posterior distribution obtained is a better representative of
+the data. The eﬀective size ranged from 6000-9900 for all the models and thus passed that check.  
 
+$$EffectiveSize = (nitt − burnin)/thin$$
+
+The ﬁnal check before inputting the values from variance co-variance matrix of the model in to the Q ST
+equation was to check to see if all the factors considered for the model passed the ‘heidel.diag’ test. 
+The model usually does not pass the test in cases where the amount of sampling was not high enough. 
+This study has a very big sampling size, and thus it passed for all the traits under study. 
+However, even if the model does not pass this test, it is not reason enough to reject the model and the posterior distribution generated. 
+However, once a posterior distribution is generated after running the model, if the distribution is not uni-modal, then that would be really bad model. 
+Since a mean QST value and its conﬁdence interval are required for the comparison study with F ST , 
+a distibution with more than one peak is not acceptable.
+However, it should be noted that the shape of the distribution just needs to be uni modal, even if its too
+skewed or too ﬂat, it still is considered a good model for the trait under study. 
+```{r}
 ### Diagnostics 
 autocorr.diag(modCore1$VCV)
 summary(modCore1)
@@ -143,12 +176,6 @@ plot(dens$x, dens$y/dens_sum, type = "l")
 
 ### Qst for the edge
 ```{r}
-# set priors 
-modPrior=list(R=list(V=1, n=0.002), # V = variance set to 1 as default
-               G=list(G1=list(V=1, n=0.002),
-               G2=list(V=1, n=0.002)))
-
-
 modEdge1 <-  MCMCglmm(Height ~ 1, 
                       random= ~ Families + population,
                       family="gaussian",
