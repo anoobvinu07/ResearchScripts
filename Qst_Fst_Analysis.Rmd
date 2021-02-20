@@ -1,0 +1,441 @@
+---
+title: "Qst_Fst_Analysis"
+author: "Anoob Prakash"
+date: "16 April 2019"
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Getting started and formatting the data  
+### Package  
+```{r}
+library(MCMCglmm) # for Qst analysis
+library(tidyverse)
+library(forestplot) # for plotting
+```
+
+### Data 
+```{r}
+### trait data
+tdata <- read.csv("./trait_data.csv")
+tdata$Trait <- runif(nrow(tdata),15,31)
+str(tdata)
+
+#rename  column family to Family due to an error MCMCglmm throws, since the package also have an argument named family
+        
+### Divide the dataset according to three regions [core, margin,edge]
+Core <- filter(tdata, Region == "C") 
+Margin <- filter(tdata, Region == "M") 
+Edge <- filter(tdata, Region == "E") 
+
+```
+
+## Set prior    
+**Setting priors for the model**   
+A unifrom non informative prior was used to get the posterior distribution given the data. The ‘R’ in the prior stands for residual variance and G stands for the variance due to the random eﬀects. The prior distibution is the package is paramaterised to nu and V4. In this study the values are set at what is considered to be classical. This prior was good enough for all the models of traits studied in the three regions.  
+
+```{r}
+### set seed
+set.seed(1001)
+
+# set priors 
+modPrior=list(R=list(V=1, n=0.002), 
+               G=list(G1=list(V=1, n=0.002),
+               G2=list(V=1, n=0.002)))
+```
+
+
+
+
+
+## Qst within each region  
+### 1. Core  
+```{r}
+
+### Qst for the core
+
+modCore1 <-  MCMCglmm(Trait ~ 1, 
+                      random= ~ Family + Population,
+                      family="gaussian",
+                      data=Core,
+                      prior=modPrior, pr=TRUE, 
+                      burnin=10000 , 
+                      nitt=1000000 , 
+                      thin=100)
+
+
+plot(modCore1) # unimodal distribution required
+
+
+### Diagnostics 
+autocorr.diag(modCore1$VCV)
+summary(modCore1)
+effectiveSize(modCore1$Sol)
+effectiveSize(modCore1$VCV) 
+heidel.diag(modCore1$VCV) # needs to pass all the tests 
+# effective size more than 1000
+# The distribution becomes uni modal when thin = 100
+
+### Estimate Qst  
+Qst_core_fulldataset = (modCore1$VCV[,"Population"]/
+                         (modCore1$VCV[,"Population"] +
+                            2*(modCore1$VCV[,"Family"])))
+
+posterior.mode(Qst_core_fulldataset) # mode for the distribution  
+HPDinterval(Qst_core_fulldataset) # CI 
+
+summary(Qst_core_fulldataset)
+plot(density(Qst_core_fulldataset)) # the unimodal peak of the distribution is a good indicator
+
+QstPlot_core_fulldataset=as.data.frame(Qst_core_fulldataset)
+dens<- density(QstPlot_core_fulldataset$var1)
+dens_sum = sum(density(QstPlot_core_fulldataset$var1)$y)
+plot(dens$x, dens$y/dens_sum, type = "l")
+```
+
+### Qst for the margin
+```{r}
+modMargin1 <-  MCMCglmm(Trait ~ 1, 
+                      random= ~ Family + Population,
+                      family="gaussian",
+                      data=slMargin,
+                      prior=modPrior, 
+                      pr=TRUE, 
+                      burnin=10000 , 
+                      nitt=1000000 , 
+                      thin=100)
+
+
+plot(modMargin1)
+
+
+### Diagnostics 
+autocorr.diag(modMargin1$VCV)
+summary(modMargin1)
+effectiveSize(modMargin1$Sol)
+effectiveSize(modMargin1$VCV)
+heidel.diag(modMargin1$VCV) 
+
+### Estimate Qst
+Qst_margin_fulldataset =(modMargin1$VCV[,"Population"]/
+         (modMargin1$VCV[,"Population"] + 
+            2*(modMargin1$VCV[,"Family"])))
+
+posterior.mode(Qst_margin_fulldataset) 
+HPDinterval(Qst_margin_fulldataset)
+
+summary(Qst_margin_fulldataset)
+plot(density(Qst_margin_fulldataset)) r
+
+QstPlot_margin_fulldataset=as.data.frame(Qst_margin_fulldataset)
+dens<- density(QstPlot_margin_fulldataset$var1)
+dens_sum = sum(density(QstPlot_margin_fulldataset$var1)$y)
+plot(dens$x, dens$y/dens_sum, type = "l")
+```
+
+
+### Qst for the edge
+```{r}
+# set priors 
+modPrior=list(R=list(V=1, n=0.002), # V = variance set to 1 as default
+               G=list(G1=list(V=1, n=0.002),
+               G2=list(V=1, n=0.002)))
+
+
+modEdge1 <-  MCMCglmm(Height ~ 1, 
+                      random= ~ Families + population,
+                      family="gaussian",
+                      data=slEdge,
+                      prior=modPrior, pr=TRUE, burnin=10000 , nitt=1000000 , thin=100)
+
+
+plot(modEdge1)
+
+
+### Diagnostics
+autocorr.diag(modEdge1$VCV)
+summary(modEdge1)
+effectiveSize(modEdge1$Sol)
+effectiveSize(modEdge1$VCV)
+heidel.diag(modEdge1$VCV) 
+
+
+### Estimate Qst
+Qst_edge_fulldataset =(modEdge1$VCV[,"Population"]/
+         (modEdge1$VCV[,"Population"] + 
+            2*(modEdge1$VCV[,"Family"])))
+
+posterior.mode(Qst_edge_fulldataset) 
+HPDinterval(Qst_edge_fulldataset)
+
+summary(Qst_edge_fulldataset)
+plot(density(Qst_edge_fulldataset))
+
+QstPlot_edge_fulldataset=as.data.frame(Qst_edge_fulldataset)
+dens<- density(QstPlot_edge_fulldataset$var1)
+dens_sum = sum(density(QstPlot_edge_fulldataset$var1)$y)
+plot(dens$x, dens$y/dens_sum, type = "l")
+
+```
+
+
+### $F_{ST}$
+
+
+```{r}
+fst <- read.table("Fst_distribution_regions.txt")
+nrow(fst) #90000
+# fst <- na.omit(fst)
+# nrow(fst)
+
+coreFst <- na.omit(fst[,1])
+marginFst <- na.omit(fst[,2])
+edgeFst <- na.omit(fst[,3])
+
+```
+
+### Fst mean and CI
+```{r}
+summary(coreFst) #mean = 0.01254 
+quantile(coreFst,.975) # 0.088 
+quantile(coreFst,.025) # 0
+
+summary(marginFst) #mean = 0.02358 
+quantile(marginFst,.975) #  0.1692 
+quantile(marginFst,.025) # 0
+
+summary(edgeFst) #mean = 0.01892  
+quantile(edgeFst,.975) #  0.1394 
+quantile(edgeFst,.025) # 0
+```
+
+
+### Bootstrapping function
+```{r}
+#####################bootstrapping
+
+# a function to perform bootstrapping
+boot.mean.sampling.distribution = function(raw.data, B=1000){
+  # this function will take 1,000 (by default) bootsamples calculate the mean of 
+  # each one, store it, & return the bootstrapped sampling distribution of the mean
+
+  boot.dist = vector(length=B)     # this will store the means
+  N         = length(raw.data)     # this is the N from your data
+  for(i in 1:B){
+    boot.sample  = sample(x=raw.data, size=N, replace=TRUE)
+    boot.dist[i] = mean(boot.sample)
+  }
+  boot.dist = sort(boot.dist)
+  return(boot.dist)
+}
+```
+
+### Bootstrapping Fst for each region
+```{r}
+coreB <- boot.mean.sampling.distribution(coreFst)
+mean(coreB) # 0.01253692
+hist(coreB)
+sd(coreB)
+
+quantile(coreB,.025) # lwr = 0.01236278 
+quantile(coreB,.975) # upr = 0.01271652 
+
+# ------------------------------------------------------------
+
+
+marginB <- boot.mean.sampling.distribution(marginFst)
+
+mean(marginB) # 0.02357289
+hist(marginB)
+sd(marginB)
+
+quantile(marginB,.025) # lwr = 0.02321597
+quantile(marginB,.975) # upr = 0.02394149 
+
+# ------------------------------------------------------------
+
+edgeB <- boot.mean.sampling.distribution(edgeFst)
+
+mean(edgeB) # 0.01892543
+hist(edgeB)
+sd(edgeB)
+
+quantile(edgeB,.025) # lwr = 0.01860426
+quantile(edgeB,.975) # upr = 0.01922697 
+```
+
+### Plotting Qst vs Fst
+```{r}
+# library(forestplot)
+
+coreQst_Fst <- na.omit(read.table("coreQst_Fst.csv", sep = ",", header = TRUE))
+
+
+
+tabletext<-cbind(
+  c("", "Height", "Seed_weight", "Relative_fitness", "Core Fst"))
+
+xticks <- seq(from = -.025, to = 1, by = 0.25)
+xtlab <- rep(c(TRUE, FALSE), length.out = length(xticks))
+attr(xticks, "labels") <- xtlab
+
+clrs <- fpColors(box="darkred",line="darkblue", summary="royalblue")
+
+coreMeta <- structure(list(
+    mean  = c(NA, 0.000127193,0.145735000, 0.001161110, 0.0125369200), 
+    lower = c(NA, 0.000002577,0.058135200, 0.000036917, 0.0123627800),
+    upper = c(NA, 0.139271600,0.347303800, 0.174457100, 0.0127165200)),
+    .Names = c("mean", "lower", "upper"), 
+    row.names = c(NA, -4L), 
+    class = "data.frame")
+
+
+forestplot(tabletext,
+           coreMeta,new_page = TRUE,
+           clip=c(0.001,1.0),
+           xlog=TRUE,
+           boxsize = .10,  # We set the box size to better visualize the type
+           line.margin = .1, # We need to add this to avoid crowding
+           col=clrs
+           
+           )
+
+## Core plot
+
+clrs <- fpColors(box="darkred",line="darkblue", summary="royalblue")
+xticks <- seq(from = -.0, to = 1.15, by = 0.25)
+forestplot(tabletext,
+           coreMeta,new_page = TRUE,
+           clip=c(-.025, 1),
+           boxsize = .10,  # We set the box size to better visualize the type
+           line.margin = .1, # We need to add this to avoid crowding
+           col=clrs,
+           xticks = xticks
+           )
+
+clrs <- fpColors(box="darkred",line="darkblue", circle="royalblue")
+xticks <- seq(from = -.0, to = 1.15, by = 0.25)
+forestplot(tabletext,
+           coreMeta,new_page = TRUE,
+           fn.ci_norm = c(fpDrawNormalCI,fpDrawNormalCI, fpDrawNormalCI, fpDrawCircleCI),
+           clip=c(-.025, 1),
+           boxsize = .10,  # We set the box size to better visualize the type
+           line.margin = .1, # We need to add this to avoid crowding
+           col=clrs,
+           xticks = xticks
+           )
+
+
+# Forest plot using ggplot
+p = ggplot(data=RR_data,
+    aes(x = Group,y = RiskRatio, ymin = LowerLimit, ymax = UpperLimit ))+
+    geom_pointrange(aes(col=Group))+
+    geom_hline(aes(fill=Group),yintercept =1, linetype=2)+
+    xlab('Group')+ ylab("Risk Ratio (95% Confidence Interval)")+
+    geom_errorbar(aes(ymin=LowerLimit, ymax=UpperLimit,col=Group),width=0.5,cex=1)+ 
+    facet_wrap(~Condition,strip.position="left",nrow=9,scales = "free_y") +
+    theme(plot.title=element_text(size=16,face="bold"),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x=element_text(face="bold"),
+        axis.title=element_text(size=12,face="bold"),
+        strip.text.y = element_text(hjust=0,vjust = 1,angle=180,face="bold"))+
+    coord_flip()
+```
+
+### Qst/Fst
+
+```{r}
+### Core Qst/Fst plot
+
+library(readxl)
+coreXL <- data.frame(read_excel("coreQst_Fst.xlsx"))
+
+corePlot <- ggplot(data=coreXL,
+    aes(x = Type,y = Mean, ymin = LowerLimit, ymax = UpperLimit ))+
+    geom_pointrange(aes(col=Type))+
+    geom_hline(aes(fill=Type),yintercept = 0.012536920, linetype=2)+
+    xlab('')+ ylab("Qst/Fst")+
+    geom_errorbar(aes(ymin=LowerLimit, ymax=UpperLimit,col=Type),width=0.5,cex=1)+ 
+    facet_wrap(~Value,strip.position="left",nrow=9,scales = "free_y") +
+    theme(plot.title=element_text(size=24,face="bold"),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x=element_text(face="bold"),
+        axis.title=element_text(size=14,face="bold"),
+        strip.text.y = element_text(size = 14, hjust=0.5,vjust = 0.5,angle=180,face="bold"))+
+    coord_flip()
+
+corePlot + theme_classic()
+
+corePlot + theme_bw()
+
+corePlot + ylim(0, 1)
+
+
+### Margin Qst/Fst plot
+marginXL <- data.frame(read_excel("marginQst_Fst.xlsx"))
+
+marginPlot <- ggplot(data=marginXL,
+    aes(x = Type,y = Mean, ymin = LowerLimit, ymax = UpperLimit ))+
+    geom_pointrange(aes(col=Type))+
+    geom_hline(aes(fill=Type),yintercept = 0.0235728900, linetype=2)+
+    xlab('')+ ylab("Qst/Fst")+
+    geom_errorbar(aes(ymin=LowerLimit, ymax=UpperLimit,col=Type),width=0.5,cex=1)+ 
+    facet_wrap(~Value,strip.position="left",nrow=9,scales = "free_y") +
+    theme(plot.title=element_text(size=24,face="bold"),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x=element_text(face="bold"),
+        axis.title=element_text(size=14,face="bold"),
+        strip.text.y = element_text(size = 14, hjust=0.5,vjust = 0.5,angle=180,face="bold"))+
+    coord_flip()
+
+marginPlot + theme_classic()
+
+marginPlot + theme_bw()
+
+marginPlot +  ylim(0, 1)
+
+
+
+
+
+### Edge Qst/Fst plot
+edgeXL <- data.frame(read_excel("edgeQst_Fst.xlsx"))
+
+edgePlot <- ggplot(data=edgeXL,
+    aes(x = Type,y = Mean, ymin = LowerLimit, ymax = UpperLimit ))+
+    geom_pointrange(aes(col=Type))+
+    geom_hline(aes(fill=Type),yintercept = 1.892543e-02, linetype=2)+
+    xlab('')+ ylab("Qst/Fst")+
+    geom_errorbar(aes(ymin=LowerLimit, ymax=UpperLimit,col=Type),width=0.5,cex=1)+ 
+    facet_wrap(~Value,strip.position="left",nrow=9,scales = "free_y") +
+    theme(plot.title=element_text(size=24,face="bold"),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.text.x=element_text(face="bold"),
+        axis.title=element_text(size=14,face="bold"),
+        strip.text.y = element_text(size = 14, hjust=0.5,vjust = 0.5,angle=180,face="bold"))+
+    coord_flip()
+
+edgePlot + theme_classic() + ylim(0, 1)
+
+edgePlot + theme_bw()
+
+edgePlot  + ylim(0, 1)
+
+edgePlot  + ylim(0, 1) + theme_bw()
+
+
+
+
+```
+
